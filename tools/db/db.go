@@ -1,10 +1,9 @@
-package storage
+package db
 
 import (
 	"io/ioutil"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/Oguzyildirim/go-counter/internal"
 )
@@ -25,13 +24,9 @@ func New(dir string) *Driver {
 }
 
 // Insert creates a new record at db
-func (d *Driver) Insert() error {
+func (d *Driver) Insert(data interface{}) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-
-	now := time.Now()
-	formatted := now.Format(time.RFC1123)
-	data := formatted + "\n"
 
 	f, err := os.OpenFile(d.dir, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -39,7 +34,7 @@ func (d *Driver) Insert() error {
 	}
 	defer f.Close()
 
-	if _, err := f.WriteString(data); err != nil {
+	if _, err := f.WriteString(data.(string)); err != nil {
 		return internal.WrapErrorf(err, internal.ErrorCodeInvalidArgument, "WriteString failed")
 	}
 	return nil
@@ -47,6 +42,8 @@ func (d *Driver) Insert() error {
 
 // Get finds a new record
 func (d *Driver) Get() (string, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	b, err := ioutil.ReadFile(d.dir)
 	if err != nil {
 		return "", internal.WrapErrorf(err, internal.ErrorCodeUnknown, "ioutil read file failed")

@@ -51,6 +51,6 @@ func renderResponse(w http.ResponseWriter, res interface{}, status int) {
 	w.WriteHeader(status)
 
 	if _, err = w.Write(content); err != nil {
-		//  error
+		log.Fatal(err)
 	}
 }

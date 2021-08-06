@@ -17,10 +17,24 @@ and hit localhost:9234/count to get the total number of requests in last minute
 
 ```
 
+
+## Using Docker to simplify development (optional)
+
+```
+Run docker-compose up 
+```
+
+## Build
+
+```
+make build
+```
+
+
 ## Testing
 
 ```
-Run  go test ./... in root folder
+make test
 ```
 
 

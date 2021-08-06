@@ -10,25 +10,35 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Oguzyildirim/go-counter/internal/rest"
-	"github.com/Oguzyildirim/go-counter/internal/service"
-	"github.com/Oguzyildirim/go-counter/internal/storage"
+	"github.com/Oguzyildirim/go-counter/internal/counter/rest"
+	"github.com/Oguzyildirim/go-counter/internal/counter/service"
+	cdb "github.com/Oguzyildirim/go-counter/internal/counter/storage"
+	"github.com/Oguzyildirim/go-counter/internal/limiter/middleware"
+	ldb "github.com/Oguzyildirim/go-counter/internal/limiter/storage"
 )
 
 func main() {
-	var env, address string
-	flag.StringVar(&env, "env", "db", "path")
+	var counterdb, limiterdb, address string
+	flag.StringVar(&counterdb, "counterdb", "counterdb", "path to counterdb")
+	flag.StringVar(&limiterdb, "limiterdb", "limiterdb", "path to limiterdb")
 	flag.StringVar(&address, "address", ":9234", "HTTP Server Address")
 	flag.Parse()
 
-	if _, err := os.Stat(env); os.IsNotExist(err) {
-		_, err := os.Create(env)
+	if _, err := os.Stat(counterdb); os.IsNotExist(err) {
+		_, err := os.Create(counterdb)
 		if err != nil {
 			log.Fatalf("Couldn't run: %s", err)
 		}
 	}
 
-	errC, err := run(address, env)
+	if _, err := os.Stat(limiterdb); os.IsNotExist(err) {
+		_, err := os.Create(limiterdb)
+		if err != nil {
+			log.Fatalf("Couldn't run: %s", err)
+		}
+	}
+
+	errC, err := run(address, counterdb, limiterdb)
 	if err != nil {
 		log.Fatalf("Couldn't run: %s", err)
 	}
@@ -38,11 +48,11 @@ func main() {
 	}
 }
 
-func run(address, db string) (<-chan error, error) {
+func run(address, counterdb string, limiterdb string) (<-chan error, error) {
 
 	errC := make(chan error, 1)
 
-	srv := newServer(address, db)
+	srv := newServer(address, counterdb, limiterdb)
 
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt,
@@ -83,13 +93,18 @@ func run(address, db string) (<-chan error, error) {
 
 }
 
-func newServer(address string, db string) *http.Server {
+func newServer(address string, counterdb string, limiterdb string) *http.Server {
 	r := http.NewServeMux()
 
-	repo := storage.NewCounter(db)
-	svc := service.NewCounter(repo)
+	// limiter
+	limiterRepo := ldb.NewLimiter(limiterdb)
+	rateLimiter := middleware.NewRateLimitMiddleware(limiterRepo)
 
-	rest.NewCounterHandler(svc).Register(r)
+	// counter
+	counterRepo := cdb.NewCounter(counterdb)
+	counterSvc := service.NewCounter(counterRepo)
+
+	rest.NewCounterHandler(counterSvc, rateLimiter).Register(r)
 
 	return &http.Server{
 		Handler:           r,

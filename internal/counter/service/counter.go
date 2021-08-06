@@ -6,7 +6,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Oguzyildirim/go-counter/internal"
 )
+
+const windowLimit = 1
 
 // CounterRepository defines the datastore handling persisting Counter records
 type CounterRepository interface {
@@ -69,16 +73,15 @@ func compose(result string) (int, error) {
 		return 0, fmt.Errorf("NewScanner: %w", err)
 	}
 
+	now := time.Now()
+	window := now.Add(time.Minute * -windowLimit)
 	for i := len(times) - 1; i >= 0; i-- {
-		now := time.Now()
-		if inTimeSpan(now.Add(time.Minute*-1), now, times[i]) {
+		if internal.InTimeSpan(window, now, times[i]) {
 			count = count + 1
+		} else {
+			break
 		}
 	}
 
 	return count, nil
-}
-
-func inTimeSpan(start, end, check time.Time) bool {
-	return check.After(start) && check.Before(end)
 }

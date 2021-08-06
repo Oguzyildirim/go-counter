@@ -1,24 +1,30 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/Oguzyildirim/go-counter/internal"
+	"github.com/Oguzyildirim/go-counter/tools/db"
 )
 
 // Counter represents the repository used for interacting with Counter records
 type Counter struct {
-	db *Driver
+	db *db.Driver
 }
 
 // NewCounter instantiates the Counter repository
 func NewCounter(dir string) *Counter {
 	return &Counter{
-		db: New(dir),
+		db: db.New(dir),
 	}
 }
 
 // Create inserts a new ıser record
 func (c *Counter) Create() error {
-	err := c.db.Insert()
+	now := time.Now()
+	formatted := now.Format(time.RFC1123)
+	data := formatted + "\n"
+	err := c.db.Insert(data)
 	if err != nil {
 		return internal.WrapErrorf(err, internal.ErrorCodeInvalidArgument, "create failed")
 	}
